@@ -1,17 +1,17 @@
 {
   "domain": "webrtc",
-  "name": "WebRTC Camera",
+  "name": "WebRTC Camera 2",
   "codeowners": [
-    "@AlexxIT"
+    "@yq314"
   ],
   "config_flow": true,
   "dependencies": [
     "http",
     "lovelace"
   ],
-  "documentation": "https://github.com/AlexxIT/WebRTC",
+  "documentation": "https://github.com/yq314/WebRTC",
   "iot_class": "calculated",
-  "issue_tracker": "https://github.com/AlexxIT/WebRTC/issues",
+  "issue_tracker": "https://github.com/yq314/WebRTC/issues",
   "requirements": [],
-  "version": "v3.6.1"
+  "version": "v3.7.1"
 }
