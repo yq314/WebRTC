@@ -56,6 +56,7 @@ class WebRTCCamera extends VideoRTC {
          *     ui: boolean,
          *     style: string,
          *     background: boolean,
+         *     live_indicator: boolean,
          *
          *     server: string,
          *
@@ -130,6 +131,20 @@ class WebRTCCamera extends VideoRTC {
     nextStream(reload) {
         this.streamID = (this.streamID + 1) % this.config.streams.length;
 
+        // when stream has changed (substream), reset timer and stop heartbeat
+        if (this.streamID > 0 && this.config.live_indicator == true) { // ensures video element exists
+            // Reset the time for the watchdog
+            this._lastFrameTime = 0;
+
+            // Also instantly reset the live dot to red
+            if (this.shadowRoot) {
+                const dot = this.shadowRoot.querySelector('.live-dot');
+                if (dot) {
+                    dot.classList.remove('live');
+                }
+            }
+        }
+
         const stream = this.config.streams[this.streamID];
         this.config.url = stream.url;
         this.config.entity = stream.entity;
@@ -201,6 +216,38 @@ class WebRTCCamera extends VideoRTC {
         }).catch(er => {
             this.setStatus('error', er);
         });
+
+         // when stream is connected, hook the video frame callback to track live indicator
+        if (this.video && this.video.requestVideoFrameCallback && this.config.live_indicator == true) {
+            this.video.requestVideoFrameCallback(() => this.updateHeartbeat());
+        }
+
+        // start watchdog timer to update live indicator
+        if (!this._liveCheckInterval && this.config.live_indicator == true) {
+            this._liveCheckInterval = setInterval(() => {
+                const dot = this.shadowRoot.querySelector('.live-dot');
+                if (!dot) return;
+
+                const now = Date.now();
+                // Check if the last frame arrived less than 500ms ago
+                const isPlaying = (now - this._lastFrameTime) < 500;
+
+                if (isPlaying) {
+                    dot.classList.add('live');
+                } else {
+                    dot.classList.remove('live');
+                }
+            }, 500);
+        }
+    }
+
+    ondisconnect() {
+        // when stream is disconnected, cleanup the live indicator watchdog timer
+        if (this._liveCheckInterval) {
+            clearInterval(this._liveCheckInterval);
+            this._liveCheckInterval = null;
+        }
+        super.ondisconnect();
     }
 
     onopen() {
@@ -272,6 +319,22 @@ class WebRTCCamera extends VideoRTC {
                 opacity: 0.6;
                 pointer-events: auto;
             }
+            .live-dot-wrapper {
+                display: flex;
+                flex-grow: 1;
+                justify-content: end;
+            }
+            .live-dot {
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                background-color: #D2122E;
+                align-self: center;
+                transition: background-color 0.3s, box-shadow 0.3s;
+            }
+            .live-dot.live {
+                background-color: #90EE90;
+            }
         </style>
         <ha-card class="card">
             <div class="player">
@@ -279,6 +342,12 @@ class WebRTCCamera extends VideoRTC {
             </div>
             <div class="header">
                 <div class="status"></div>
+                ${ this.config.live_indicator == true ? `
+                    <div class="live-dot-wrapper">
+                        <div class="live-dot"></div> <div class="status"></div>
+                    </div>
+                ` : ''
+                }
                 <div class="mode"></div>
             </div>
         </ha-card>
